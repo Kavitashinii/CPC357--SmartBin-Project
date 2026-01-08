@@ -1,0 +1,18 @@
+# Arduino / PlatformIO / ESP32
+*.pio/
+*.elf
+*.bin
+*.hex
+*.d
+*.map
+*.log
+*.zip
+
+# VS Code / System files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Node / frontend (if you add npm later)
+node_modules/
+dist/

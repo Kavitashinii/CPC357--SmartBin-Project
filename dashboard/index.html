@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBPP Smart Bin IoT Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            padding: 15px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #e94560 0%, #f39c12 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1em;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .status-online {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .status-offline {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-button {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+            color: #94a3b8;
+        }
+
+        .tab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+            border-color: #e94560;
+            color: #e94560;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #e94560 0%, #f39c12 100%);
+            color: white;
+            border-color: #e94560;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.5);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .priority-section {
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+
+        .secondary-section {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .card {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            border: 1px solid #533483;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(233, 69, 96, 0.2);
+            border-color: #e94560;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 12px 0;
+            background: linear-gradient(135deg, #e94560 0%, #f39c12 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-subtitle {
+            color: #94a3b8;
+            font-size: 1em;
+            margin-top: 8px;
+        }
+
+        .fill-bar {
+            width: 100%;
+            height: 35px;
+            background: #1a1a2e;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+            position: relative;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .fill-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+
+        .alert-box {
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 12px;
+            font-weight: 600;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .alert-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: 2px solid #f87171;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: 2px solid #fbbf24;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: 2px solid #34d399;
+        }
+
+        .led-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+            vertical-align: middle;
+            transition: all 0.3s ease;
+        }
+
+        .led-red {
+            background: #ef4444;
+            box-shadow: 0 0 20px #ef4444;
+        }
+
+        .led-green {
+            background: #10b981;
+            box-shadow: 0 0 20px #10b981;
+        }
+
+        .led-off {
+            background: #0f3460;
+            box-shadow: none;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #0f3460;
+            font-size: 1em;
+        }
+
+        .data-row:last-child {
+            border-bottom: none;
+        }
+
+        .data-label {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .data-value {
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 15px;
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .history-table th {
+            background: #1a1a2e;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e94560;
+            color: #f1f5f9;
+            font-size: 0.95em;
+        }
+
+        .history-table td {
+            padding: 12px;
+            border-bottom: 1px solid #0f3460;
+            color: #cbd5e1;
+            font-size: 0.9em;
+        }
+
+        .history-table tr:hover {
+            background: #16213e;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .timestamp {
+            text-align: center;
+            color: #64748b;
+            margin-top: 25px;
+            font-size: 0.9em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #0f3460;
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-3px);
+            border-color: #e94560;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #e94560 0%, #f39c12 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            color: #f1f5f9;
+            margin: 25px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e94560;
+        }
+
+        .combined-indicator {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .indicator-item {
+            flex: 1;
+            padding: 15px;
+            border-radius: 12px;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+        }
+
+        .indicator-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        .indicator-label {
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status-on {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .status-off {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .notification {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            border-left: 5px solid;
+            animation: slideIn 0.5s ease;
+            display: flex;
+            align-items: start;
+            gap: 15px;
+        }
+
+        .notification.danger {
+            border-left-color: #ef4444;
+        }
+
+        .notification.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .notification-icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #f1f5f9;
+        }
+
+        .notification-message {
+            font-size: 0.95em;
+            color: #94a3b8;
+            margin-bottom: 5px;
+        }
+
+        .notification-time {
+            font-size: 0.85em;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            transition: color 0.3s;
+        }
+
+        .notification-close:hover {
+            color: #f1f5f9;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .notification.closing {
+            animation: slideOut 0.5s ease;
+        }
+
+        .alert-type-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Notification Container -->
+    <div class="notification-container" id="notificationContainer"></div>
+    
+    <div class="container">
+        <header>
+            <h1>🗑️ MBPP (Penang Garbage Collector)</h1>
+            <div class="subtitle">Real-Time Monitoring & Data Analytics</div>
+            <div class="status-badge status-offline" id="connectionStatus">
+                ⚫ Disconnected
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('realtime')">📊 Real-Time Monitoring</button>
+            <button class="tab-button" onclick="switchTab('history')">📈 Historical Data</button>
+            <button class="tab-button" onclick="switchTab('analytics')">📉 System Analytics</button>
+            <button class="tab-button" onclick="switchTab('alerts')">🚨 Alert History</button>
+        </div>
+
+        <!-- REAL-TIME TAB -->
+        <div id="realtime" class="tab-content active">
+            <div class="combined-indicator">
+                <div class="indicator-item">
+                    <div class="indicator-label">Bin Fill Level</div>
+                    <div class="indicator-value" id="fillPercentage">0%</div>
+                    <div class="fill-bar">
+                        <div class="fill-progress" id="fillBar" style="width: 0%;">0%</div>
+                    </div>
+                    <div class="card-subtitle">Distance: <span id="distance">-- cm</span></div>
+                </div>
+                
+                <div class="indicator-item">
+                    <div class="indicator-label">Gas Detection</div>
+                    <div class="indicator-value" id="gasValue">0</div>
+                    <div class="card-subtitle">Status: <span id="gasStatus" style="font-weight: bold;">SAFE</span></div>
+                    <div class="alert-box alert-success" id="gasAlert" style="margin-top: 10px;">
+                        ✓ Air quality is normal
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">📡 System Status</div>
+            <div class="dashboard-grid secondary-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #e94560 0%, #f39c12 100%); color: white;">
+                            🗑️
+                        </div>
+                        <div class="card-title">Bin Status</div>
+                    </div>
+                    <div class="card-value" id="binStatus" style="font-size: 2em;">EMPTY</div>
+                    <div class="alert-box alert-success" id="binAlert">
+                        ✓ Bin is ready for use
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #533483 0%, #e94560 100%); color: white;">
+                            👋
+                        </div>
+                        <div class="card-title">Motion & Lid</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Motion Detected:</span>
+                        <span class="data-value">
+                            <span class="status-indicator status-off" id="motionIndicator">
+                                <span id="motionStatus">NO</span>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Lid Status:</span>
+                        <span class="data-value">
+                            <span class="status-indicator status-off" id="lidIndicator">
+                                <span id="lidStatus">CLOSED</span>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="card-subtitle" style="margin-top: 15px; color: #94a3b8; font-size: 0.9em;">
+                        Lid opens when motion is detected
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #f39c12 0%, #10b981 100%); color: white;">
+                            💡
+                        </div>
+                        <div class="card-title">LED Indicators</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Red LED (Full):</span>
+                        <span class="data-value">
+                            <span id="redLEDStatus">OFF</span>
+                            <span class="led-indicator led-off" id="redLED"></span>
+                        </span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Green LED (Ready):</span>
+                        <span class="data-value">
+                            <span id="greenLEDStatus">ON</span>
+                            <span class="led-indicator led-green" id="greenLED"></span>
+                        </span>
+                    </div>
+                    <div class="card-subtitle" style="margin-top: 15px; color: #94a3b8; font-size: 0.9em;">
+                        <div>🔴 Red: Bin is full (needs emptying)</div>
+                        <div>🟢 Green: Bin is ready to use</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #533483 0%, #e94560 100%); color: white;">
+                            ℹ️
+                        </div>
+                        <div class="card-title">System Info</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Device ID:</span>
+                        <span class="data-value">esp32_smartbin</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Cloud Platform:</span>
+                        <span class="data-value">Google Cloud</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Last Update:</span>
+                        <span class="data-value" id="lastUpdate">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORICAL TRENDS TAB -->
+        <div id="history" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #e94560 0%, #f39c12 100%); color: white;">
+                            📈
+                        </div>
+                        <div class="card-title">Fill Level History (Last 20 Readings)</div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="fillChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); color: white;">
+                            💨
+                        </div>
+                        <div class="card-title">Gas Sensor History (Last 20 Readings)</div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="gasChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #533483 0%, #e94560 100%); color: white;">
+                            📋
+                        </div>
+                        <div class="card-title">Recent Data Log</div>
+                    </div>
+                    <table class="history-table" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Fill %</th>
+                                <th>Distance</th>
+                                <th>Gas Value</th>
+                                <th>Status</th>
+                                <th>Motion</th>
+                                <th>Lid</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr><td colspan="7" style="text-align: center; padding: 25px; color: #64748b;">Waiting for data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS TAB -->
+        <div id="analytics" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #e94560 0%, #f39c12 100%); color: white;">
+                            📊
+                        </div>
+                        <div class="card-title">System Analytics</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="avgFill">0%</div>
+                            <div class="stat-label">Average Fill Level</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="maxFill">0%</div>
+                            <div class="stat-label">Maximum Fill</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="avgGas">0</div>
+                            <div class="stat-label">Average Gas Level</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalReadings">0</div>
+                            <div class="stat-label">Total Readings</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="motionCount">0</div>
+                            <div class="stat-label">Motion Events</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="gasAlerts">0</div>
+                            <div class="stat-label">Gas Alerts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #f39c12 0%, #10b981 100%); color: white;">
+                            🎯
+                        </div>
+                        <div class="card-title">System Performance</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">System Uptime:</span>
+                        <span class="data-value" id="uptime">Calculating...</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Data Update Rate:</span>
+                        <span class="data-value">Every 3 seconds</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Protocol:</span>
+                        <span class="data-value">MQTT over WebSocket</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Cloud Platform:</span>
+                        <span class="data-value">Google Cloud Platform (GCP)</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Hardware:</span>
+                        <span class="data-value">ESP32 Microcontroller</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERTS HISTORY TAB -->
+        <div id="alerts" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card full-width">
+                    <div class="card-header">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%); color: white;">
+                            🚨
+                        </div>
+                        <div class="card-title">Alert History</div>
+                    </div>
+                    <table class="history-table" id="alertHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Alert Type</th>
+                                <th>Message</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertHistoryBody">
+                            <tr><td colspan="4" style="text-align: center; padding: 25px; color: #64748b;">No alerts recorded yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="timestamp">
+            Dashboard started: <span id="startTime"></span>
+        </div>
+    </div>
+
+    <script>
+        // MQTT Configuration
+        const MQTT_BROKER = 'ws://YOUR_VM_PUBLIC_IP:9001';
+        const MQTT_TOPICS = {
+            main: 'smartbin/data'
+        };
+
+        let client;
+        let historicalData = [];
+        let alertHistory = [];
+        let fillChart, gasChart;
+        let startTimestamp = Date.now();
+        let analytics = {
+            totalReadings: 0,
+            motionCount: 0,
+            gasAlerts: 0
+        };
+
+        // Notification state tracking
+        let lastBinStatus = 'EMPTY';
+        let lastGasStatus = 'SAFE';
+        let notificationSound = null;
+
+        // Get Malaysia time
+        function getMalaysiaTime() {
+            return new Date().toLocaleString('en-MY', {
+                timeZone: 'Asia/Kuala_Lumpur',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        // Create notification sound
+        function createNotificationSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            return function playSound() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                // Second beep
+                setTimeout(() => {
+                    const osc2 = audioContext.createOscillator();
+                    const gain2 = audioContext.createGain();
+                    
+                    osc2.connect(gain2);
+                    gain2.connect(audioContext.destination);
+                    
+                    osc2.frequency.value = 1000;
+                    osc2.type = 'sine';
+                    
+                    gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                    
+                    osc2.start(audioContext.currentTime);
+                    osc2.stop(audioContext.currentTime + 0.5);
+                }, 200);
+            };
+        }
+
+        // Initialize
+        document.getElementById('startTime').textContent = getMalaysiaTime();
+        
+        // Initialize notification sound (with user interaction requirement)
+        document.addEventListener('click', function initSound() {
+            if (!notificationSound) {
+                notificationSound = createNotificationSound();
+            }
+        }, { once: true });
+        
+        initCharts();
+        connectMQTT();
+        updateUptime();
+        setInterval(updateUptime, 1000);
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'history') {
+                updateCharts();
+            } else if (tabName === 'analytics') {
+                updateAnalytics();
+            } else if (tabName === 'alerts') {
+                updateAlertHistoryTable();
+            }
+        }
+
+        // Show notification with Malaysia time
+        function showNotification(type, title, message) {
+            const container = document.getElementById('notificationContainer');
+            const malaysiaTime = getMalaysiaTime();
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            const icon = type === 'danger' ? '🚨' : '⚠️';
+            
+            notification.innerHTML = `
+                <div class="notification-icon">${icon}</div>
+                <div class="notification-content">
+                    <div class="notification-title">${title}</div>
+                    <div class="notification-message">${message}</div>
+                    <div class="notification-time">${malaysiaTime}</div>
+                </div>
+                <button class="notification-close" onclick="closeNotification(this)">✕</button>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Add to alert history
+            alertHistory.push({
+                time: malaysiaTime,
+                type: type,
+                title: title,
+                message: message
+            });
+            
+            // Play sound
+            if (notificationSound) {
+                notificationSound();
+            }
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                closeNotification(notification.querySelector('.notification-close'));
+            }, 10000);
+        }
+
+        // Close notification
+        function closeNotification(button) {
+            const notification = button.parentElement;
+            notification.classList.add('closing');
+            setTimeout(() => {
+                notification.remove();
+            }, 500);
+        }
+
+        // Update alert history table
+        function updateAlertHistoryTable() {
+            const tbody = document.getElementById('alertHistoryBody');
+            
+            if (alertHistory.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 25px; color: #64748b;">No alerts recorded yet</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            const reversedAlerts = [...alertHistory].reverse();
+            
+            reversedAlerts.forEach(alert => {
+                const row = tbody.insertRow();
+                const typeClass = alert.type === 'danger' ? 'badge-danger' : 'badge-warning';
+                const typeText = alert.type === 'danger' ? 'Critical' : 'Warning';
+                
+                row.innerHTML = `
+                    <td>${alert.time}</td>
+                    <td><span class="alert-type-badge ${typeClass}">${typeText}</span></td>
+                    <td>${alert.message}</td>
+                    <td>${alert.title}</td>
+                `;
+            });
+        }
+
+        // Check for alerts
+        function checkForAlerts(data) {
+            // Check bin status
+            if (data.BinStatus === 'FULL' && lastBinStatus !== 'FULL') {
+                showNotification(
+                    'danger',
+                    'Bin Full Alert!',
+                    'The garbage bin is full and needs to be emptied immediately.'
+                );
+            }
+            lastBinStatus = data.BinStatus || 'EMPTY';
+            
+            // Check gas status
+            if (data.GasStatus === 'DETECTED' && lastGasStatus !== 'DETECTED') {
+                showNotification(
+                    'warning',
+                    'Gas Detected!',
+                    'Hazardous gas has been detected. Please check the bin area immediately.'
+                );
+            }
+            lastGasStatus = data.GasStatus || 'SAFE';
+        }
+
+        // Initialize charts
+        function initCharts() {
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: false 
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            grid: {
+                                color: '#0f3460'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: '#0f3460'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    }
+                }
+            };
+
+            fillChart = new Chart(document.getElementById('fillChart'), {
+                ...chartConfig,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Fill Percentage',
+                        data: [],
+                        borderColor: '#e94560',
+                        backgroundColor: 'rgba(233, 69, 96, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                }
+            });
+
+            gasChart = new Chart(document.getElementById('gasChart'), {
+                ...chartConfig,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Gas Level',
+                        data: [],
+                        borderColor: '#f39c12',
+                        backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                }
+            });
+        }
+
+        // Connect to MQTT broker
+        function connectMQTT() {
+            try {
+                client = mqtt.connect(MQTT_BROKER);
+                
+                client.on('connect', function() {
+                    console.log('Connected to MQTT broker');
+                    document.getElementById('connectionStatus').textContent = '🟢 Connected';
+                    document.getElementById('connectionStatus').className = 'status-badge status-online';
+                    
+                    client.subscribe(MQTT_TOPICS.main, function(err) {
+                        if (!err) console.log('Subscribed to:', MQTT_TOPICS.main);
+                    });
+                });
+
+                client.on('message', function(topic, message) {
+                    const data = message.toString();
+                    updateDashboard(data);
+                });
+
+                client.on('error', function(error) {
+                    console.error('MQTT Error:', error);
+                    document.getElementById('connectionStatus').textContent = '⚫ Error';
+                    document.getElementById('connectionStatus').className = 'status-badge status-offline';
+                });
+
+                client.on('offline', function() {
+                    document.getElementById('connectionStatus').textContent = '⚫ Offline';
+                    document.getElementById('connectionStatus').className = 'status-badge status-offline';
+                });
+            } catch (error) {
+                console.error('Connection error:', error);
+            }
+        }
+
+        // Update dashboard with new data
+        function updateDashboard(data) {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+
+            try {
+                const jsonData = JSON.parse(data);
+                
+                // Store historical data
+                historicalData.push({
+                    time: now.toLocaleTimeString(),
+                    fillPercentage: jsonData.FillPercentage || 0,
+                    distance: jsonData.distance || 0,
+                    gasValue: jsonData.GasValue || 0,
+                    binStatus: jsonData.BinStatus || 'EMPTY',
+                    gasStatus: jsonData.GasStatus || 'SAFE',
+                    motionDetected: jsonData.MotionDetected || false,
+                    lidOpen: jsonData.LidOpen || false
+                });
+                
+                // Keep only last 20 readings
+                if (historicalData.length > 20) {
+                    historicalData.shift();
+                }
+                
+                // Update analytics
+                analytics.totalReadings++;
+                if (jsonData.MotionDetected) analytics.motionCount++;
+                if (jsonData.GasStatus === 'DETECTED') analytics.gasAlerts++;
+                
+                // Check for alerts
+                checkForAlerts(jsonData);
+                
+                // Update real-time display
+                updateRealTimeData(jsonData);
+                updateHistoryTable();
+                
+            } catch (e) {
+                console.error('JSON parse error:', e);
+            }
+        }
+
+        // Update real-time data display
+        function updateRealTimeData(data) {
+            // Fill level
+            if (data.FillPercentage !== undefined) {
+                updateFillLevel(data.FillPercentage);
+            }
+            
+            // Distance
+            if (data.distance !== undefined) {
+                document.getElementById('distance').textContent = data.distance + ' cm';
+            }
+            
+            // Bin status
+            if (data.BinStatus) {
+                const statusElement = document.getElementById('binStatus');
+                const alertElement = document.getElementById('binAlert');
+                statusElement.textContent = data.BinStatus;
+                
+                if (data.BinStatus === 'FULL') {
+                    statusElement.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+                    statusElement.style.webkitBackgroundClip = 'text';
+                    statusElement.style.webkitTextFillColor = 'transparent';
+                    alertElement.className = 'alert-box alert-danger';
+                    alertElement.innerHTML = '⚠️ Bin is full! Needs emptying';
+                } else {
+                    statusElement.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    statusElement.style.webkitBackgroundClip = 'text';
+                    statusElement.style.webkitTextFillColor = 'transparent';
+                    alertElement.className = 'alert-box alert-success';
+                    alertElement.innerHTML = '✓ Bin is ready for use';
+                }
+            }
+            
+            // Gas detection
+            if (data.GasValue !== undefined) {
+                document.getElementById('gasValue').textContent = data.GasValue;
+            }
+            
+            if (data.GasStatus) {
+                const gasStatusEl = document.getElementById('gasStatus');
+                const gasAlertEl = document.getElementById('gasAlert');
+                
+                gasStatusEl.textContent = data.GasStatus;
+                
+                if (data.GasStatus === 'DETECTED') {
+                    gasStatusEl.style.color = '#ef4444';
+                    gasAlertEl.className = 'alert-box alert-danger';
+                    gasAlertEl.innerHTML = '⚠️ Gas detected! Check immediately';
+                } else {
+                    gasStatusEl.style.color = '#10b981';
+                    gasAlertEl.className = 'alert-box alert-success';
+                    gasAlertEl.innerHTML = '✓ Air quality is normal';
+                }
+            }
+            
+            // Motion detection
+            if (data.MotionDetected !== undefined) {
+                const motionEl = document.getElementById('motionStatus');
+                const motionIndicator = document.getElementById('motionIndicator');
+                
+                motionEl.textContent = data.MotionDetected ? 'YES' : 'NO';
+                
+                if (data.MotionDetected) {
+                    motionIndicator.className = 'status-indicator status-on';
+                } else {
+                    motionIndicator.className = 'status-indicator status-off';
+                }
+            }
+            
+            // Lid status - OPENED when motion is detected
+            const motionDetected = data.MotionDetected || false;
+            const lidEl = document.getElementById('lidStatus');
+            const lidIndicator = document.getElementById('lidIndicator');
+            
+            if (motionDetected) {
+                lidEl.textContent = 'OPENED';
+                lidIndicator.className = 'status-indicator status-warning';
+                // Reset to CLOSED after 3 seconds (simulating lid closing)
+                setTimeout(() => {
+                    if (!data.MotionDetected) {
+                        lidEl.textContent = 'CLOSED';
+                        lidIndicator.className = 'status-indicator status-off';
+                    }
+                }, 3000);
+            } else {
+                lidEl.textContent = 'CLOSED';
+                lidIndicator.className = 'status-indicator status-off';
+            }
+            
+            // LED status
+            updateLEDStatus(data);
+        }
+
+        // Update fill level display
+        function updateFillLevel(percentage) {
+            const fillPercentageEl = document.getElementById('fillPercentage');
+            const fillBarEl = document.getElementById('fillBar');
+            
+            fillPercentageEl.textContent = percentage + '%';
+            fillBarEl.style.width = percentage + '%';
+            fillBarEl.textContent = percentage + '%';
+            
+            // Change color based on fill level
+            if (percentage >= 80) {
+                fillBarEl.style.background = 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+                fillBarEl.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.5)';
+            } else if (percentage >= 50) {
+                fillBarEl.style.background = 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
+                fillBarEl.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+            } else {
+                fillBarEl.style.background = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+                fillBarEl.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.5)';
+            }
+        }
+
+        // Update LED status display
+        function updateLEDStatus(data) {
+            const redLED = document.getElementById('redLED');
+            const greenLED = document.getElementById('greenLED');
+            const redLEDStatus = document.getElementById('redLEDStatus');
+            const greenLEDStatus = document.getElementById('greenLEDStatus');
+            
+            // Red LED - Check actual values from MQTT
+            if (data.RedLED !== undefined) {
+                if (data.RedLED === true || data.RedLED === 'true' || data.RedLED === 'ON') {
+                    redLED.className = 'led-indicator led-red pulse';
+                    redLEDStatus.textContent = 'ON';
+                    greenLED.className = 'led-indicator led-off';
+                    greenLEDStatus.textContent = 'OFF';
+                } else {
+                    redLED.className = 'led-indicator led-off';
+                    redLEDStatus.textContent = 'OFF';
+                }
+            } else if (data.BinStatus === 'FULL') {
+                redLED.className = 'led-indicator led-red pulse';
+                redLEDStatus.textContent = 'ON';
+                greenLED.className = 'led-indicator led-off';
+                greenLEDStatus.textContent = 'OFF';
+            } else {
+                redLED.className = 'led-indicator led-off';
+                redLEDStatus.textContent = 'OFF';
+            }
+            
+            // Green LED - Check actual values from MQTT
+            if (data.GreenLED !== undefined) {
+                if (data.GreenLED === true || data.GreenLED === 'true' || data.GreenLED === 'ON') {
+                    greenLED.className = 'led-indicator led-green';
+                    greenLEDStatus.textContent = 'ON';
+                    redLED.className = 'led-indicator led-off';
+                    redLEDStatus.textContent = 'OFF';
+                } else {
+                    greenLED.className = 'led-indicator led-off';
+                    greenLEDStatus.textContent = 'OFF';
+                }
+            } else if (data.BinStatus === 'EMPTY' || !data.BinStatus) {
+                greenLED.className = 'led-indicator led-green';
+                greenLEDStatus.textContent = 'ON';
+                redLED.className = 'led-indicator led-off';
+                redLEDStatus.textContent = 'OFF';
+            } else if (data.BinStatus === 'FULL') {
+                greenLED.className = 'led-indicator led-off';
+                greenLEDStatus.textContent = 'OFF';
+            } else {
+                greenLED.className = 'led-indicator led-green';
+                greenLEDStatus.textContent = 'ON';
+            }
+        }
+
+        // Update history table
+        function updateHistoryTable() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            
+            // Show latest data first
+            const reversedData = [...historicalData].reverse();
+            
+            reversedData.forEach(entry => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${entry.time}</td>
+                    <td>${entry.fillPercentage}%</td>
+                    <td>${entry.distance} cm</td>
+                    <td>${entry.gasValue}</td>
+                    <td><span style="color: ${entry.binStatus === 'FULL' ? '#ef4444' : '#10b981'}; font-weight: bold;">${entry.binStatus}</span></td>
+                    <td><span style="color: ${entry.motionDetected ? '#3b82f6' : '#94a3b8'}; font-weight: bold;">${entry.motionDetected ? 'YES' : 'NO'}</span></td>
+                    <td><span style="color: ${entry.lidOpen ? '#f59e0b' : '#10b981'}; font-weight: bold;">${entry.lidOpen ? 'OPEN' : 'CLOSED'}</span></td>
+                `;
+            });
+        }
+
+        // Update charts
+        function updateCharts() {
+            if (historicalData.length === 0) return;
+            
+            const labels = historicalData.map(d => d.time);
+            const fillData = historicalData.map(d => d.fillPercentage);
+            const gasData = historicalData.map(d => d.gasValue);
+            
+            // Update fill chart
+            fillChart.data.labels = labels;
+            fillChart.data.datasets[0].data = fillData;
+            fillChart.update();
+            
+            // Update gas chart
+            gasChart.data.labels = labels;
+            gasChart.data.datasets[0].data = gasData;
+            gasChart.update();
+        }
+
+        // Update analytics
+        function updateAnalytics() {
+            if (historicalData.length === 0) {
+                document.getElementById('avgFill').textContent = '0%';
+                document.getElementById('maxFill').textContent = '0%';
+                document.getElementById('avgGas').textContent = '0';
+                return;
+            }
+            
+            // Calculate average fill level
+            const totalFill = historicalData.reduce((sum, d) => sum + d.fillPercentage, 0);
+            const avgFill = Math.round(totalFill / historicalData.length);
+            document.getElementById('avgFill').textContent = avgFill + '%';
+            
+            // Calculate max fill level
+            const maxFill = Math.max(...historicalData.map(d => d.fillPercentage));
+            document.getElementById('maxFill').textContent = maxFill + '%';
+            
+            // Calculate average gas value
+            const totalGas = historicalData.reduce((sum, d) => sum + d.gasValue, 0);
+            const avgGas = Math.round(totalGas / historicalData.length);
+            document.getElementById('avgGas').textContent = avgGas;
+            
+            // Update other analytics
+            document.getElementById('totalReadings').textContent = analytics.totalReadings;
+            document.getElementById('motionCount').textContent = analytics.motionCount;
+            document.getElementById('gasAlerts').textContent = analytics.gasAlerts;
+        }
+
+        // Update uptime
+        function updateUptime() {
+            const now = Date.now();
+            const diff = now - startTimestamp;
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            const uptimeStr = `${hours}h ${minutes}m ${seconds}s`;
+            const uptimeEl = document.getElementById('uptime');
+            if (uptimeEl) {
+                uptimeEl.textContent = uptimeStr;
+            }
+        }
+    </script>
+</body>
+</html>
