@@ -40,7 +40,7 @@ This project supports **UN SDG 11: Sustainable Cities and Communities** by impro
 ## Project Structure
 
 
-
+---
 smart-bin-iot/
 ├── esp32/
 │   └── smart_bin_esp32_code/
@@ -48,7 +48,7 @@ smart-bin-iot/
 ├── dashboard/
 │   └── index.html
 └── README.md
-
+---
 
 ## PART A — ESP32 SETUP (LOCAL COMPUTER)
 
