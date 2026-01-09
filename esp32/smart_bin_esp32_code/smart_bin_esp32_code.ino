@@ -16,7 +16,7 @@ const int MQTT_PORT = 1883;
 const char* MQTT_CLIENT_ID = "esp32_smartbin";
 
 // ==================== SUPABASE CONFIG ====================
-const char* SUPABASE_URL = "https://sdubvhobnpsierccdqgb.supabase.co";
+const char* SUPABASE_URL = "YOUR_SUPABASE_URL";
 const char* SUPABASE_KEY = "YOUR_SUPABASE_API_KEY";
 // No need for SUPABASE_ENDPOINT constant anymore
 
