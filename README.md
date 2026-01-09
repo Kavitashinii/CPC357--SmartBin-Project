@@ -1,126 +1,124 @@
-🗑️ Smart Bin Monitoring System (IoT)
-Project Overview
+Perfect! I can clean up your README and make it **well-structured, readable, and ready to copy-paste**, keeping it simple and everything in **one README** as you wanted. Here's the updated version:
 
-An IoT-based Smart Bin system that monitors trash level, gas presence, and user motion using ESP32.
-The system publishes real-time data to a cloud MQTT server and displays it on a web dashboard, while also storing sensor data in Supabase for analysis.
+```markdown
+# 🗑️ Smart Bin Monitoring System (IoT)
 
-This project supports UN SDG 11: Sustainable Cities and Communities by improving waste monitoring efficiency.
+## Project Overview
+An IoT-based Smart Bin system that monitors trash level, gas presence, and user motion using **ESP32**. The system publishes real-time data to a cloud MQTT server and displays it on a web dashboard, while also storing sensor data in **Supabase** for analysis.
 
-🔧 System Features
+This project supports **UN SDG 11: Sustainable Cities and Communities** by improving waste monitoring efficiency.
 
-Real-time bin level monitoring (Ultrasonic sensor)
+---
 
-Motion detection for automatic lid opening (IR sensor + Servo)
+## 🔧 System Features
+- Real-time bin level monitoring (Ultrasonic sensor)
+- Motion detection for automatic lid opening (IR sensor + Servo)
+- Gas detection alert (Gas sensor)
+- LED status indicators (Full / Empty)
+- MQTT cloud communication (Google Cloud VM)
+- Web dashboard with real-time charts
+- Cloud database storage using Supabase
 
-Gas detection alert (Gas sensor)
+---
 
-LED status indicators (Full / Empty)
+## 🧰 Hardware & Software Requirements
 
-MQTT cloud communication (Google Cloud VM)
+### Hardware
+- ESP32-S3 Development Board  
+- HC-SR04 Ultrasonic Sensor  
+- IR Motion Sensor  
+- Gas Sensor (MQ series)  
+- Servo Motor  
+- Red & Green LEDs  
 
-Web dashboard with real-time charts
+### Software & Services
+- Arduino IDE  
+- Google Cloud Platform (VM)  
+- Mosquitto MQTT Broker  
+- Supabase Account  
+- Web Browser (for dashboard)  
 
-Cloud database storage using Supabase
+---
 
-🧰 Hardware & Software Requirements
-Hardware
+## 📁 Project Structure
 
-ESP32-S3 Development Board
+```
 
-HC-SR04 Ultrasonic Sensor
-
-IR Motion Sensor
-
-Gas Sensor (MQ series)
-
-Servo Motor
-
-Red & Green LEDs
-
-Software & Services
-
-Arduino IDE
-
-Google Cloud Platform (VM)
-
-Mosquitto MQTT Broker
-
-Supabase Account
-
-Web Browser (for dashboard)
-
-📁 Project Structure
 Smart-Bin-IoT/
-│
-├── esp32/            # ESP32 firmware (Arduino)
-│   └── smartbin.ino
-│
-├── dashboard/        # Web dashboard
+├── esp32/
+│   └── smart_bin_esp32_code/
+│       └── smart_bin_esp32_code.ino
+├── dashboard/
 │   └── index.html
-│
-├── vm/               # MQTT server setup guide
-│   └── README.md
-│
-├── supabase/         # Database setup
-│   └── README.md
-│
-└── README.md         # Project documentation
+└── README.md
 
-✅ PART A — ESP32 SETUP (LOCAL COMPUTER)
-Step 1: Configure ESP32 Code
+````
 
-Open esp32/smartbin.ino in Arduino IDE
+> Note: `vm/` and `supabase/` folders are optional guides. All instructions are included in this README.
 
-Update these fields:
+---
 
+## ✅ PART A — ESP32 SETUP (LOCAL COMPUTER)
+
+### Step 1: Clone Repository for Development
+
+```bash
+git clone https://github.com/Kavitashinii/CPC357--SmartBin-Project.git
+cd CPC357--SmartBin-Project
+````
+
+### Step 2: Configure ESP32 Code
+
+Open `esp32/smart_bin_esp32_code/smart_bin_esp32_code.ino` in Arduino IDE and update these fields:
+
+```cpp
 const char* WIFI_SSID = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* MQTT_BROKER = "YOUR_VM_PUBLIC_IP";
 const char* SUPABASE_KEY = "YOUR_SUPABASE_API_KEY";
+```
 
-Step 2: Upload Firmware
+### Step 3: Upload Firmware
 
-Connect ESP32 to PC via USB
+1. Connect ESP32 to PC via USB
+2. Select correct **Board** and **Port**
+3. Click **Upload**
+4. Open Serial Monitor to verify expected output:
 
-Select correct Board and Port
+   * WiFi connected
+   * MQTT connected
+   * Sensor readings printed
 
-Click Upload
+---
 
-Open Serial Monitor to verify:
+## ✅ PART B — CLOUD MQTT SERVER (GOOGLE CLOUD VM)
 
-Expected output:
+### Step 4: Create VM Instance
 
-WiFi connected
+* OS: Ubuntu 22.04
+* Machine: e2-micro
 
-MQTT connected
+### Step 5: Open Firewall Ports
 
-Sensor readings printed
+* TCP 1883 → MQTT
+* TCP 9001 → WebSocket
 
-✅ PART B — CLOUD MQTT SERVER (GOOGLE CLOUD VM)
-Step 3: Create VM Instance
+### Step 6: Install Mosquitto on VM
 
-OS: Ubuntu 22.04
-
-Machine: e2-micro
-
-Open Firewall Ports:
-
-TCP 1883 (MQTT)
-
-TCP 9001 (WebSocket)
-
-Step 4: Install Mosquitto on VM
+```bash
 sudo apt update
 sudo apt install mosquitto mosquitto-clients -y
-
+```
 
 Edit config:
 
+```bash
 sudo nano /etc/mosquitto/mosquitto.conf
-
+```
 
 Add:
 
+```
 listener 1883
 protocol mqtt
 
@@ -128,71 +126,85 @@ listener 9001
 protocol websockets
 
 allow_anonymous true
+```
 
+Restart Mosquitto:
 
-Restart:
-
+```bash
 sudo systemctl restart mosquitto
 sudo systemctl enable mosquitto
+```
 
-Step 5: Test MQTT
+### Step 7: Test MQTT
 
-Subscribe:
-
+```bash
 mosquitto_sub -t smartbin/data -v
-
+```
 
 When ESP32 runs, JSON messages should appear.
 
-✅ PART C — WEB DASHBOARD
-Step 6: Configure Dashboard
+---
 
-Open:
+## ✅ PART C — WEB DASHBOARD
 
-dashboard/index.html
+### Step 8: Configure Dashboard
 
+Open `dashboard/index.html` and update:
 
-Update:
-
+```javascript
 const MQTT_BROKER = 'ws://YOUR_VM_PUBLIC_IP:9001';
+```
 
-Step 7: Run Dashboard
+### Step 9: Run Dashboard
 
-Just double-click:
+* Just double-click `index.html`
+* Dashboard will show:
 
-index.html
+  * Bin status
+  * Fill percentage
+  * Gas alert
+  * Charts
 
+---
 
-Dashboard will show:
+## ✅ PART D — SUPABASE DATABASE
 
-Bin status
+### Step 10: Create Table
 
-Fill percentage
+In Supabase SQL Editor, run:
 
-Gas alert
-
-Charts
-
-✅ PART D — SUPABASE DATABASE
-Step 8: Create Table
-
-In Supabase SQL Editor:
-
+```sql
 create table sensor_readings (
-  id bigint generated always as identity primary key,
-  distance_cm int,
-  gas_value int,
-  motion_detected boolean,
-  created_at timestamp with time zone default now()
+    id bigint generated always as identity primary key,
+    distance_cm int,
+    gas_value int,
+    motion_detected boolean,
+    created_at timestamp with time zone default now()
 );
+```
 
-Step 9: Get API Credentials
+### Step 11: Get API Credentials
 
 From Supabase:
 
-Project URL → SUPABASE_URL
-
-anon public key → SUPABASE_KEY
+* **Project URL** → SUPABASE_URL
+* **anon public key** → SUPABASE_KEY
 
 ESP32 sends data using HTTP POST every few seconds.
 
+---
+
+## 🚀 Notes
+
+* Everything is included in this README; no need to navigate multiple folders.
+* Optional: Add `.gitignore` to ignore unnecessary files (e.g., `.vscode/`, `*.bin`).
+* Ensure your VM public IP is accessible from ESP32.
+
+```
+
+---
+
+If you want, I can also **add a “quick start” section at the top** with a single command to clone, set ESP32 credentials, and run the dashboard for even easier setup for your teammates.  
+
+Do you want me to do that too?
+```
