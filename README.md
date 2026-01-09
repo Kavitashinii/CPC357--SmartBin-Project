@@ -83,7 +83,7 @@ const char* SUPABASE_KEY = "YOUR_SUPABASE_API_KEY";
 
 ---
 
-## ✅ PART B — CLOUD MQTT SERVER (GOOGLE CLOUD VM)
+## PART B — CLOUD MQTT SERVER (GOOGLE CLOUD VM)
 
 ### Step 4: Create VM Instance
 
@@ -159,7 +159,7 @@ const MQTT_BROKER = 'ws://YOUR_VM_PUBLIC_IP:9001';
 
 ---
 
-## ✅ PART D — SUPABASE DATABASE
+## PART D — SUPABASE DATABASE
 
 ### Step 10: Create Supabase Project
 
