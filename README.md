@@ -66,6 +66,7 @@ Open `esp32/smart_bin_esp32_code/smart_bin_esp32_code.ino` in Arduino IDE and up
 const char* WIFI_SSID = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* MQTT_BROKER = "YOUR_VM_PUBLIC_IP";
+const char* SUPABASE_URL = "YOUR_SUPABASE_URL";
 const char* SUPABASE_KEY = "YOUR_SUPABASE_API_KEY";
 ```
 
