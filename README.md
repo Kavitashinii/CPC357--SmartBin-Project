@@ -1,7 +1,4 @@
-Perfect! I can clean up your README and make it **well-structured, readable, and ready to copy-paste**, keeping it simple and everything in **one README** as you wanted. Here's the updated version:
-
-```markdown
-# 🗑️ Smart Bin Monitoring System (IoT)
+# Smart Bin Monitoring System (IoT)
 
 ## Project Overview
 An IoT-based Smart Bin system that monitors trash level, gas presence, and user motion using **ESP32**. The system publishes real-time data to a cloud MQTT server and displays it on a web dashboard, while also storing sensor data in **Supabase** for analysis.
