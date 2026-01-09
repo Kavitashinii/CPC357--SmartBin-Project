@@ -18,7 +18,7 @@ This project supports **UN SDG 11: Sustainable Cities and Communities** by impro
 
 ---
 
-## 🧰 Hardware & Software Requirements
+## Hardware & Software Requirements
 
 ### Hardware
 - ESP32-S3 Development Board  
@@ -37,9 +37,9 @@ This project supports **UN SDG 11: Sustainable Cities and Communities** by impro
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
-```
+
 
 smart-bin-iot/
 ├── esp32/
@@ -49,7 +49,6 @@ smart-bin-iot/
 │   └── index.html
 └── README.md
 
----
 
 ## PART A — ESP32 SETUP (LOCAL COMPUTER)
 
