@@ -137,7 +137,7 @@ When ESP32 runs, JSON messages should appear.
 
 ---
 
-## ✅ PART C — WEB DASHBOARD
+## PART C — WEB DASHBOARD
 
 ### Step 8: Configure Dashboard
 
