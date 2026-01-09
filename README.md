@@ -49,13 +49,9 @@ Smart-Bin-IoT/
 │   └── index.html
 └── README.md
 
-````
-
-> Note: `vm/` and `supabase/` folders are optional guides. All instructions are included in this README.
-
 ---
 
-## ✅ PART A — ESP32 SETUP (LOCAL COMPUTER)
+## PART A — ESP32 SETUP (LOCAL COMPUTER)
 
 ### Step 1: Clone Repository for Development
 
@@ -166,21 +162,142 @@ const MQTT_BROKER = 'ws://YOUR_VM_PUBLIC_IP:9001';
 
 ## ✅ PART D — SUPABASE DATABASE
 
-### Step 10: Create Table
+### Step 10: Create Supabase Project
+
+1. Go to Supabase and create an account.
+
+2. Click New Project → give it a name (e.g., smart-bin) → choose Password for database authentication → wait for initialization.
+   
+
+### Step 11: Create Tables
 
 In Supabase SQL Editor, run:
 
 ```sql
-create table sensor_readings (
-    id bigint generated always as identity primary key,
-    distance_cm int,
-    gas_value int,
-    motion_detected boolean,
-    created_at timestamp with time zone default now()
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- SENSOR READINGS (Raw Data)
+CREATE TABLE IF NOT EXISTS sensor_readings (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    device_id TEXT DEFAULT 'esp32_smartbin',
+    distance_cm INTEGER NOT NULL,
+    gas_value INTEGER NOT NULL,
+    motion_detected BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
 );
+
+-- BIN STATUS (Calculated)
+CREATE TABLE IF NOT EXISTS bin_status (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    device_id TEXT DEFAULT 'esp32_smartbin',
+    fill_percentage DECIMAL(5,2) CHECK (fill_percentage >= 0 AND fill_percentage <= 100),
+    bin_status TEXT CHECK (bin_status IN ('EMPTY','HALF_FULL','FULL')),
+    gas_status TEXT CHECK (gas_status IN ('SAFE','DETECTED')),
+    lid_open BOOLEAN DEFAULT FALSE,
+    red_led BOOLEAN DEFAULT FALSE,
+    green_led BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+);
+
+-- ALERTS (Critical Events)
+CREATE TABLE IF NOT EXISTS alerts (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    device_id TEXT DEFAULT 'esp32_smartbin',
+    alert_type TEXT CHECK (alert_type IN ('BIN_FULL','GAS_DETECTED','SYSTEM_ERROR')),
+    alert_level TEXT CHECK (alert_level IN ('CRITICAL','WARNING','INFO')),
+    alert_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+);
+
+```
+### Step 12: Enable Row-Level Security (RLS)
+
+This automatically calculates bin fill %, status, LEDs, and inserts alerts when new sensor data is added:
+
+```sql
+ALTER TABLE sensor_readings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bin_status ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+
+-- For testing, allow public access
+CREATE POLICY "Allow all operations" ON sensor_readings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations" ON bin_status FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations" ON alerts FOR ALL USING (true) WITH CHECK (true);
+```
+### Step 13: Auto Calculation Trigger
+
+```sql
+-- Function to calculate fill percentage
+CREATE OR REPLACE FUNCTION calculate_fill_percentage(distance_cm INTEGER)
+RETURNS DECIMAL(5,2) AS $$
+DECLARE
+    empty_distance CONSTANT DECIMAL(5,2) := 16.0;
+BEGIN
+    IF distance_cm IS NULL OR distance_cm <= 0 OR distance_cm > empty_distance THEN
+        RETURN 0;
+    END IF;
+    RETURN ROUND(((empty_distance - distance_cm) / empty_distance) * 100.0, 2);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger function for processing sensor readings
+CREATE OR REPLACE FUNCTION process_sensor_reading()
+RETURNS TRIGGER AS $$
+DECLARE
+    fill_percent DECIMAL(5,2);
+    bin_status_val TEXT;
+    gas_status_val TEXT;
+    red_led_val BOOLEAN;
+    green_led_val BOOLEAN;
+    lid_open_val BOOLEAN;
+    current_time_val TIMESTAMP WITH TIME ZONE;
+BEGIN
+    current_time_val := (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur');
+    fill_percent := calculate_fill_percentage(NEW.distance_cm);
+
+    -- Determine bin status & LEDs
+    IF fill_percent >= 80 THEN
+        bin_status_val := 'FULL'; red_led_val := TRUE; green_led_val := FALSE;
+    ELSIF fill_percent >= 30 THEN
+        bin_status_val := 'HALF_FULL'; red_led_val := FALSE; green_led_val := TRUE;
+    ELSE
+        bin_status_val := 'EMPTY'; red_led_val := FALSE; green_led_val := TRUE;
+    END IF;
+
+    -- Gas status
+    IF NEW.gas_value > 1350 THEN gas_status_val := 'DETECTED'; ELSE gas_status_val := 'SAFE'; END IF;
+    lid_open_val := NEW.motion_detected;
+
+    -- Insert calculated bin status
+    INSERT INTO bin_status (device_id, fill_percentage, bin_status, gas_status, lid_open, red_led, green_led, created_at)
+    VALUES (NEW.device_id, fill_percent, bin_status_val, gas_status_val, lid_open_val, red_led_val, green_led_val, current_time_val);
+
+    -- Insert alerts
+    IF bin_status_val = 'FULL' THEN
+        INSERT INTO alerts (device_id, alert_type, alert_level, alert_message, created_at)
+        VALUES (NEW.device_id, 'BIN_FULL', 'CRITICAL', 'Bin is full and needs emptying', current_time_val);
+    END IF;
+
+    IF gas_status_val = 'DETECTED' THEN
+        INSERT INTO alerts (device_id, alert_type, alert_level, alert_message, created_at)
+        VALUES (NEW.device_id, 'GAS_DETECTED', 'WARNING', 'Gas detected near bin', current_time_val);
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS on_sensor_reading_insert ON sensor_readings;
+CREATE TRIGGER on_sensor_reading_insert
+AFTER INSERT ON sensor_readings
+FOR EACH ROW
+EXECUTE FUNCTION process_sensor_reading();
+
 ```
 
-### Step 11: Get API Credentials
+### Step 14: Get API Credentials
 
 From Supabase:
 
@@ -189,19 +306,3 @@ From Supabase:
 
 ESP32 sends data using HTTP POST every few seconds.
 
----
-
-## 🚀 Notes
-
-* Everything is included in this README; no need to navigate multiple folders.
-* Optional: Add `.gitignore` to ignore unnecessary files (e.g., `.vscode/`, `*.bin`).
-* Ensure your VM public IP is accessible from ESP32.
-
-```
-
----
-
-If you want, I can also **add a “quick start” section at the top** with a single command to clone, set ESP32 credentials, and run the dashboard for even easier setup for your teammates.  
-
-Do you want me to do that too?
-```
