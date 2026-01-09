@@ -7,7 +7,7 @@ This project supports **UN SDG 11: Sustainable Cities and Communities** by impro
 
 ---
 
-## 🔧 System Features
+## System Features
 - Real-time bin level monitoring (Ultrasonic sensor)
 - Motion detection for automatic lid opening (IR sensor + Servo)
 - Gas detection alert (Gas sensor)
