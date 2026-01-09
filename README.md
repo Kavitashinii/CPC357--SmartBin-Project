@@ -41,7 +41,7 @@ This project supports **UN SDG 11: Sustainable Cities and Communities** by impro
 
 ```
 
-Smart-Bin-IoT/
+smart-bin-iot/
 ├── esp32/
 │   └── smart_bin_esp32_code/
 │       └── smart_bin_esp32_code.ino
